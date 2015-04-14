@@ -1,0 +1,11 @@
+julia         0.3.7
+
+DataFrames    0.6.2
+HDF5          0.4.13
+StreamStats   0.0.2
+Distributions 0.6.6
+
+Smile         0.1.1+
+Discretizers  0.0.1-
+
+SmileExtra    0.0.0-  https://github.com/tawheeler/SmileExtra.jl
