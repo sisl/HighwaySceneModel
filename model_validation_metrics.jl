@@ -17,8 +17,7 @@ function compute_metrics(scenes::Vector{RoadScene})
     retval = Dict{Symbol,Any}()
 
     # n_overlaps
-    #   if vehicle bounding box overlap
-    #   not included in paper results because results were boring
+    #   if vehicle bounding boxed overlap
 
     # ttc for each vehicle
     #   ttc = max(-d_front / (v_front - v_rear), 0.0)

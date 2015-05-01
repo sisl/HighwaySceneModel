@@ -1,12 +1,12 @@
 
 const OUTPUT_FOLDER = "/media/tim/DATAPART1/Data/NGSIM/output/"
 
-model_name(::Type{UnivariateSceneGenerator})            = "marginalbase"
-model_name(::Type{JointBNSimpleSceneGenerator})         = "jointbase"
-model_name(::Type{JointBNSceneGenerator})               = "jointlane"
-model_name(::Type{JointBNChainSceneGenerator})          = "jointchain"
+model_name(::Type{UnivariateSceneGenerator}) = "marginalbase"
+model_name(::Type{JointBNSimpleSceneGenerator}) = "jointbase"
+model_name(::Type{JointBNSceneGenerator}) = "jointlane"
+model_name(::Type{JointBNChainSceneGenerator}) = "jointchain"
 model_name(::Type{JointBNChainBackwardsSceneGenerator}) = "jointchainbackwards"
-model_name(::Type{HeirarchicalSceneGenerator})          = "heirarchical"
+model_name(::Type{HeirarchicalSceneGenerator}) = "heirarchical"
 
 function write{T}(res::ModelOptimizationResults{T}, set::String = "")
 
@@ -67,12 +67,19 @@ function write(metrics::Dict{Symbol, Any}, set::String = "")
 end
 
 function output_scenes{T<:SceneGenerator}(sg::T, scenes::Vector{RoadScene}, set::String = "")
+    if isempty(set)
+        return output_scenes(scenes, model_name(T))
+    else
+        return output_scenes(scenes, model_name(T) * "_" * set)
+    end
+end
+function output_scenes(scenes::Vector{RoadScene}, set::String = "")
 
     if isempty(set)
-        filename = joinpath(OUTPUT_FOLDER, model_name(T) * "_scene" )
+        filename = joinpath(OUTPUT_FOLDER, "scene" )
     else
-        filename = joinpath(OUTPUT_FOLDER, model_name(T) * "_" * set * "_scene" )
-    end
+        filename = joinpath(OUTPUT_FOLDER, set * "_scene" )
+    end 
 
     rm = RenderModel()
     canvas_width = 800

@@ -8,7 +8,7 @@ const SMOOTHING_WIDTH_POS   = 0.5 # [s]
 function symmetric_exponential_moving_average(
     arr :: Vector{Float64},
     T   :: Float64; # smoothing width [s]
-    dt  :: Float64 = TIMESTEP # sampling period [s]
+    dt  :: Float64 = 0.1 # sampling period [s]
     )
 
     Δ = T / dt
@@ -37,6 +37,7 @@ function symmetric_exponential_moving_average(
 
     retval
 end
+
 function preprocess!(td::Trajdata)
 
     for carid in carid_set(td)

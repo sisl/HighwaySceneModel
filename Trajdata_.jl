@@ -24,25 +24,25 @@ export Trajdata
 # width (ft)
 # class [INT] (1-motorcycle, 2-auto, 3-truck)
 # velocity (ft/s²)
-# lane
+# lane (1=farthest left, 5 is farthest right, 6 is aux, 7 is onramp, 8 is offramp)
 # carind_front, (0 otherwise)
 # carind_rear, (0 otherwise)
 # dist_headway_front [ft]
 # time_headway_front (9999.9 means v = 0)
 
-const FILENAME_HW_101_0750 = "NGSIM/HW101/US-101-Main-Data/vehicle-trajectory-data/0750am-0805am/trajectories-0750am-0805am.txt"
-const FILENAME_HW_101_0805 = "NGSIM/HW101/US-101-Main-Data/vehicle-trajectory-data/0805am-0820am/trajectories-0805am-0820am.txt"
-const FILENAME_HW_101_0820 = "NGSIM/HW101/US-101-Main-Data/vehicle-trajectory-data/0820am-0835am/trajectories-0820am-0835am.txt"
+const FILENAME_HW_101_0750 = "/media/tim/DATAPART1/Data/NGSIM/HW101/US-101-Main-Data/vehicle-trajectory-data/0750am-0805am/trajectories-0750am-0805am.txt"
+const FILENAME_HW_101_0805 = "/media/tim/DATAPART1/Data/NGSIM/HW101/US-101-Main-Data/vehicle-trajectory-data/0805am-0820am/trajectories-0805am-0820am.txt"
+const FILENAME_HW_101_0820 = "/media/tim/DATAPART1/Data/NGSIM/HW101/US-101-Main-Data/vehicle-trajectory-data/0820am-0835am/trajectories-0820am-0835am.txt"
 
-const FILENAME_HW_80_0400  = "NGSIM/HW80/I-80-Main-Data/vehicle-trajectory-data/0400pm-0415pm/trajectories-0400-0415.txt"
-const FILENAME_HW_80_0500  = "NGSIM/HW80/I-80-Main-Data/vehicle-trajectory-data/0500pm-0515pm/trajectories-0500-0515.txt"
-const FILENAME_HW_80_0515  = "NGSIM/HW80/I-80-Main-Data/vehicle-trajectory-data/0515pm-0530pm/trajectories-0515-0530.txt"
+const FILENAME_HW_80_0400  = "/media/tim/DATAPART1/Data/NGSIM/HW80/I-80-Main-Data/vehicle-trajectory-data/0400pm-0415pm/trajectories-0400-0415.txt"
+const FILENAME_HW_80_0500  = "/media/tim/DATAPART1/Data/NGSIM/HW80/I-80-Main-Data/vehicle-trajectory-data/0500pm-0515pm/trajectories-0500-0515.txt"
+const FILENAME_HW_80_0515  = "/media/tim/DATAPART1/Data/NGSIM/HW80/I-80-Main-Data/vehicle-trajectory-data/0515pm-0530pm/trajectories-0515-0530.txt"
 
-const DIST_HW_101_A =  578.0 # [ft]
-const DIST_HW_101_B =  698.0 # [ft]
-const DIST_HW_101_C =  824.0 # [ft]
-const DIST_HW_80_A  =  420.0 # [ft]
-const DIST_HW_80_B  = 1230.0 # [ft]
+const DIST_HW_101_A =  578.0
+const DIST_HW_101_B =  698.0
+const DIST_HW_101_C =  824.0
+const DIST_HW_80_A  =  420.0
+const DIST_HW_80_B  = 1230.0
 
 const CLASS_MOTORCYCLE = 1
 const CLASS_AUTOMOBILE = 2
@@ -54,12 +54,12 @@ const VEHICLE_MEAN_WIDTH  =  6.15 # [ft]
 const AVE_LANE_WIDTH = 11.44 # [ft]
 const MAX_ABS_D_CL   =  6.75 # [ft]
 
-const BOUNDS_V       = ( 0.00,100.00) # [m/s]
-const BOUNDS_D_FRONT = ( 0.00,300.00) # [m]
-const BOUNDS_D_CL    = (-5.75,  5.75) # [m]
-const BOUNDS_YAW     = (-0.10,  0.10) # [rad]
+const BOUNDS_V       = (0.0,100.0)  # [m/s]
+const BOUNDS_D_FRONT = (0.0,300.0)  # [m]
+const BOUNDS_D_CL    = (-5.75,5.75) # [m]
+const BOUNDS_YAW     = (-0.1,0.1)   # [rad]
 
-const TIMESTEP       = 0.1 # 10 Hz
+const TIMESTEP = 0.1 # 10 Hz
 
 type Trajdata
     df         :: DataFrame
@@ -179,7 +179,7 @@ const HIGHWAYDATA_SET = Dict{Symbol, HighwayData}()
 
 function highwaydata_101a()
     if !haskey(HIGHWAYDATA_SET, :oneohonea)
-        hd = HighwayData(:hw101, Trajdata(FILENAME_HW_101_0750), 476, 8797) # chosen such that road is saturated
+        hd = HighwayData(:hw101, Trajdata(FILENAME_HW_101_0750), 476, 8797)
         preprocess!(hd.trajdata)
         HIGHWAYDATA_SET[:oneohonea] = hd
     end
@@ -307,48 +307,6 @@ function get_lane_spline(sym::Symbol, laneid::Int)
 
     error("no such spline! $sym, $laneid")
 end
-function get_lane_spline(td::Trajdata, laneid::Int;
-    min_y :: Float64 = 0.0,
-    max_y :: Float64 = 1000.0
-    )
-
-    count = 0
-    for i = 1 : size(td.df, 1)
-        if td.df[i, :lane] == laneid
-            count += 1
-        end
-    end
-
-    local_x_arr = Array(Float64, count)
-    local_y_arr = Array(Float64, count)
-    count = 0
-    for i = 1 : size(td.df, 1)
-        if td.df[i, :lane] == laneid
-            count += 1
-            local_x_arr[count] = td.df[i, :local_x]
-            local_y_arr[count] = td.df[i, :local_y]
-        end
-    end
-
-    disc = LinearDiscretizer(linspace(min_y, max_y, 200))
-    x_vars = Array(StreamStats.Var, length(y_values))
-    for i = 1 : length(y_values)
-        x_vars[i] = StreamStats.Var()
-    end
-
-    y_values = bincenters(disc)
-    x_values = Array(Float64, length(y_values))
-    for (x,y) in zip(local_x_arr, local_y_arr)
-        bin = encode(disc, y)
-        update!(x_vars[bin], x)
-    end
-
-    for i = 1 : length(y_values)
-        x_values[i] = mean(x_vars[i])
-    end
-    
-    Spline1D(y_arr, x_arr, s=10.0)
-end
 
 get(td::Trajdata, sym::Symbol, dfind::Int) = td.df[dfind, sym]
 get(td::Trajdata, sym::Symbol, carid::Int, frameind::Int) = get(td, sym, car_df_index(td, carid, frameind))
@@ -411,6 +369,49 @@ end
 lanecenters(road::StraightRoadway) = ([1:road.nlanes]-0.5)*road.lanewidth
 roadwidth(road::StraightRoadway) = road.nlanes*road.lanewidth
 roadlength(road::StraightRoadway) = road.horizon_rear + road.horizon_fore
+
+function get_lane_spline(td::Trajdata, laneid::Int;
+    min_y :: Float64 = 0.0,
+    max_y :: Float64 = 1000.0
+    )
+
+    count = 0
+    for i = 1 : size(td.df, 1)
+        if td.df[i, :lane] == laneid
+            count += 1
+        end
+    end
+
+    local_x_arr = Array(Float64, count)
+    local_y_arr = Array(Float64, count)
+    count = 0
+    for i = 1 : size(td.df, 1)
+        if td.df[i, :lane] == laneid
+            count += 1
+            local_x_arr[count] = td.df[i, :local_x]
+            local_y_arr[count] = td.df[i, :local_y]
+        end
+    end
+
+    disc = LinearDiscretizer(linspace(min_y, max_y, 1000))
+    x_vars = Array(StreamStats.Var, length(y_values))
+    for i = 1 : length(y_values)
+        x_vars[i] = StreamStats.Var()
+    end
+
+    y_values = bincenters(disc)
+    x_values = Array(Float64, length(y_values))
+    for (x,y) in zip(local_x_arr, local_y_arr)
+        bin = encode(disc, y)
+        update!(x_vars[bin], x)
+    end
+
+    for i = 1 : length(y_values)
+        x_values[i] = mean(var)
+    end
+    
+    Spline1D(y_arr, x_arr, s=10.0)
+end
 
 function calc_vehicles_per_foot(td::Trajdata, lane::Int, frameind::Int)
     vehicles_per_foot = 0.0
@@ -854,7 +855,7 @@ function get_arr_d_front(scenes::Vector{RoadScene})
         end
         for (i,info) in enumerate(scene.info)
             if info.carind_fore != 0
-                retval[count+=1] = calc_d_front(scene, i)
+                retval[count+=1] =  calc_d_front(scene, i)
                 @assert(retval[count] > -VEHICLE_MEAN_LENGTH)
             end
         end
@@ -869,10 +870,10 @@ function get_base_arrays(scenes::Vector{RoadScene})
         tot_nvehicles += length(scene.vehicles)
     end
 
-    arr_v       = Array(Float64, tot_nvehicles)
+    arr_v         = Array(Float64, tot_nvehicles)
     arr_d_front = Array(Float64, tot_nvehicles)
-    arr_d_cl    = Array(Float64, tot_nvehicles)
-    arr_yaw     = Array(Float64, tot_nvehicles)
+    arr_d_cl      = Array(Float64, tot_nvehicles)
+    arr_yaw       = Array(Float64, tot_nvehicles)
 
     count = 0
     count_d_front = 0
@@ -885,11 +886,22 @@ function get_base_arrays(scenes::Vector{RoadScene})
             arr_yaw[count]  = veh.ϕ
             if info.carind_fore != 0
                 arr_d_front[count_d_front+=1] = calc_d_front(scene, i)
+                # if !(arr_d_front[count_d_front] > 0.0)
+                #     println("rear: ", veh)
+                #     println("      ", info)
+                #     println("fore: ", scene.vehicles[info.carind_fore])
+                #     println("      ", scene.info[info.carind_fore])
+                # end
                 @assert(arr_d_front[count_d_front] > -scene.vehicles[info.carind_fore].length)
             end
         end
     end
     @assert(count == tot_nvehicles)
+
+    # arr_v         += (rand(tot_nvehicles)-0.5)*0.02
+    # arr_d_front += (rand(tot_nvehicles)-0.5)*0.02
+    # arr_d_cl      += (rand(tot_nvehicles)-0.5)*0.02
+    # arr_yaw       += (rand(tot_nvehicles)-0.5)*0.02
 
     (arr_v, arr_d_front[1:count_d_front], arr_d_cl, arr_yaw)
 end
@@ -923,6 +935,7 @@ include("trajdata_preprocess.jl")
 
 include("univariate_scene_generator.jl")
 include("joint_bn_simple_scene_generator.jl")
+include("joint_bn_scene_generator.jl")
 include("joint_bn_chain_scene_generator.jl")
 include("joint_bn_chain_backwards_scene_generator.jl")
 include("heirarchical_scene_generator.jl")

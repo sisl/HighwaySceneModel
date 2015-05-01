@@ -74,7 +74,8 @@ function train_jointbnsimple_scenegenerator(scenes::Vector{RoadScene}, nbins::Di
     # structure learning
     params = LearnParams_BayesianSearch()
     params.maxparents  = 5
-    params.niterations = 20
+    params.niterations = 200
+    params.maxsearchtime = 0
     net, worked = learn((dmat-1)', params)
     @assert(worked)
 
@@ -188,6 +189,7 @@ function loglikelihood(
             offset_end = scene.road.horizon_fore - veh.y - VEHICLE_MEAN_LENGTH
             if offset_end > 0.0
                 # p(d_cl > end | d_cl, yaw, speed)
+                # TODO: this
                 probvec_dfront = normalize!(get_marginal_probability_vec(net, node_dfront, assignment)) ./ binwidths_dfront
                 score += log(prob_gt(offset_end, bmap_dfront.binedges, probvec_dfront))
             end
@@ -232,8 +234,8 @@ end
 function cross_validate_scenegenerator(
     ::Type{JointBNSimpleSceneGenerator},
     scenes::Vector{RoadScene};
-    CV_nfolds :: Int = 10, # k in k-fold cross validations
-    CV_rounds :: Int = 10, # number of CV evals to do
+    CV_nfolds :: Int = 4, # k in k-fold cross validations
+    CV_rounds :: Int = 4, # number of CV evals to do
     nbins     :: Dict{Symbol, Int} =  [
                     :speed    => 5,
                     :d_cl     => 5,
@@ -256,13 +258,115 @@ function cross_validate_scenegenerator(
     scores = Array(Float64, CV_nfolds, CV_rounds)
     for round = 1 : CV_rounds
         for (fold, train_inds) in enumerate(Kfold(nscenes, CV_nfolds))
+            # print("set!")
             test_inds = setdiff(1:nscenes, train_inds)
+            # println(" [DONE]")
+            # print("training!")
             model = f_train(train_inds)
+            # println(" [DONE]")
+            # print("logl!")
             scores[fold,round] = f_test(model, test_inds)
+            # println(" [DONE]")
         end
     end
 
+    # println("Done with a round !")
+
     scores
+end
+function cyclic_coordinate_ascent(
+    ::Type{JointBNSimpleSceneGenerator},
+    scenes::Vector{Trajdata_.RoadScene};
+    CV_nfolds :: Int = 10,
+    CV_rounds :: Int = 10
+    )
+
+    param_options = (
+            [3,5,7], # :speed       
+            [3,5,7], # :d_cl        
+            [3,5,7], # :yaw         
+            [3,5,7], # :d_front 
+        )
+
+    n_params = length(param_options)
+
+    params_tried = Set{Vector{Int}}()
+    paraminds = ones(Int, n_params)
+
+    converged = false
+    best_score = -Inf
+    best_μ     = NaN
+    best_σ     = NaN
+    iter = 0
+    while !converged
+        iter += 1
+        println("iteration: ", iter)
+        
+        converged = true
+        for coordinate = 1 : n_params
+            println("\tcoordinate: ", coordinate)
+
+            for i in 1 : length(param_options[coordinate])
+
+                println("\t\t", i, "  ", param_options[coordinate][i])
+
+                newparams = copy(paraminds)
+                newparams[coordinate] = i
+
+                if !in(newparams, params_tried)
+
+                    scores = cross_validate_scenegenerator(scenes,
+                        nbins = [
+                                :lane_speed   => param_options[1][newparams[1]],
+                                :lane_density => param_options[2][newparams[2]],
+                                :speed        => param_options[3][newparams[3]],
+                                :d_cl         => param_options[4][newparams[4]],
+                                :yaw          => param_options[5][newparams[5]],
+                                :tau_x_front  => param_options[6][newparams[6]],
+                                :tau_x_rear   => param_options[7][newparams[7]]
+                                ], CV_nfolds=CV_nfolds, CV_rounds=CV_rounds
+                        )
+                    μ, σ = ave_crossvalidated_likelihood(scores)
+                    score = μ
+
+                    push!(params_tried, newparams)
+
+                    println("\t\t\tscore: ", score)
+
+                    if score > best_score
+                        println("\t\tfound new best!")
+                        println("\t\tscore: ", score)
+                        println("\t\tnbins: ", param_options[coordinate][i])
+                        best_score = score
+                        best_μ = μ
+                        best_σ = σ
+                        paraminds[:] = newparams
+                        converged = false
+                    end
+                end
+            end
+        end
+    end
+
+    # println("done!")
+    # println("optimal params: ", )
+    # println("\tnbins_v         = ", param_options[1][paraminds[1]])
+    # println("\tnbins_d_front = ", param_options[2][paraminds[2]])
+    # println("\tnbins_d_cl      = ", param_options[3][paraminds[3]])
+    # println("\tnbins_d_yaw     = ", param_options[4][paraminds[4]])
+    # println("score: ", best_score)
+    # println("iter:  ", iter)
+
+    opt_params = Dict{Symbol,Any}()
+    opt_params[:lane_speed  ] = param_options[1][newparams[1]]
+    opt_params[:lane_density] = param_options[2][newparams[2]]
+    opt_params[:speed       ] = param_options[3][newparams[3]]
+    opt_params[:d_cl        ] = param_options[4][newparams[4]]
+    opt_params[:yaw         ] = param_options[5][newparams[5]]
+    opt_params[:tau_x_front ] = param_options[6][newparams[6]]
+    opt_params[:tau_x_rear  ] = param_options[7][newparams[7]]
+
+    ModelOptimizationResults(opt_params, best_μ, best_σ, best_score, iter)
 end
 function cyclic_coordinate_ascent_parallel(
     T::Type{JointBNSimpleSceneGenerator}, 
@@ -272,17 +376,17 @@ function cyclic_coordinate_ascent_parallel(
     )
 
     param_options = (
-            [5,7,10,15,20,25,30,35,40], # :speed
-            [5,7,10,15,20,25,30,35,40], # :d_cl        
-            [5,7,10,15,20,25,30,35,40], # :yaw         
-            [5,7,10,15,20,25,30,35,40], # :d_front  
+            [3,5,7,10,15], #20,25,30,35,40], # :speed
+            [3,5,7,10,15], #20,25,30,35,40], # :d_cl        
+            [3,5,7,10,15], #20,25,30,35,40], # :yaw         
+            [3,5,7,10,15], #20,25,30,35,40], # :d_front  
         )
 
     n_params = length(param_options)
-    paraminds = ones(Int, n_params)
+    paraminds = ones(Int, n_params)*3
     params_tried = Set{Vector{Int}}()
 
-    converged  = false
+    converged = false
     best_score = -Inf
     best_μ     = NaN
     best_σ     = NaN
@@ -315,9 +419,9 @@ function cyclic_coordinate_ascent_parallel(
                 scores = pmap(to_try) do newparams
                     cross_validate(T, scenes,
                        [
-                        :speed   => param_options[1][newparams[1]],
-                        :d_cl    => param_options[2][newparams[2]],
-                        :yaw     => param_options[3][newparams[3]],
+                        :speed     => param_options[1][newparams[1]],
+                        :d_cl      => param_options[2][newparams[2]],
+                        :yaw       => param_options[3][newparams[3]],
                         :d_front => param_options[4][newparams[4]],
                         ],CV_rounds = CV_rounds, CV_nfolds =CV_nfolds)
                 end

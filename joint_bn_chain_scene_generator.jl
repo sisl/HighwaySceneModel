@@ -331,9 +331,9 @@ function cross_validate_scenegenerator(
     CV_nfolds :: Int = 4, # k in k-fold cross validations
     CV_rounds :: Int = 4, # number of CV evals to do
     nbins     :: Dict{Symbol, Int} =  [
-                    :speed    => 5,
-                    :d_cl     => 5,
-                    :yaw      => 5,
+                    :speed        => 5,
+                    :d_cl         => 5,
+                    :yaw          => 5,
                     :d_front  => 5,
                     :d_rear   => 5,
                     :v_front  => 5,
@@ -355,11 +355,19 @@ function cross_validate_scenegenerator(
     scores = Array(Float64, CV_nfolds, CV_rounds)
     for round = 1 : CV_rounds
         for (fold, train_inds) in enumerate(Kfold(nscenes, CV_nfolds))
+            # print("set!")
             test_inds = setdiff(1:nscenes, train_inds)
+            # println(" [DONE]")
+            # print("training!")
             model = f_train(train_inds)
+            # println(" [DONE]")
+            # print("logl!")
             scores[fold,round] = f_test(model, test_inds)
+            # println(" [DONE]")
         end
     end
+
+    # println("Done with a round !")
 
     scores
 end
@@ -371,13 +379,13 @@ function cyclic_coordinate_ascent_parallel(
     )
 
     param_options = (
-            [5,7,10,15,20,25,30], # :speed
-            [5,7,10,15,20,25,30], # :d_cl
-            [5,7,10,15,20,25,30], # :yaw
-            [5,7,10,15,20,25,30], # :d_front
-            [5,7,10,15,20,25,30], # :d_rear
-            [5,7,10,15,20,25,30], # :v_front
-            [5,7,10,15,20,25,30], # :v_rear
+            [3,5,7,10,15], #,20,25,30], # :speed
+            [3,5,7,10,15], #,20,25,30], # :d_cl
+            [3,5,7,10,15], #,20,25,30], # :yaw
+            [3,5,7,10,15], #,20,25,30], # :d_front
+            [3,5,7,10,15], #,20,25,30], # :d_rear
+            [3,5,7,10,15], #,20,25,30], # :v_front
+            [3,5,7,10,15], #,20,25,30], # :v_rear
         )
 
     n_params = length(param_options)
@@ -453,6 +461,7 @@ function cyclic_coordinate_ascent_parallel(
                     paraminds[coordinate] = ip_arr[run_ind]
                     converged = false
                     println("\tfound better: ", coordinate, " -> ", param_options[coordinate][ip_arr[run_ind]])
+                    println(paraminds)
                     println("\t\tscore: ", best_score)
                 end
             end

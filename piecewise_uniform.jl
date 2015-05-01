@@ -23,6 +23,7 @@ function Base.show(io::IO, d::PiecewiseUniform)
     println(io, "")
     show(io, d.disc)
 end
+
 Base.extrema(d::PiecewiseUniform) = extrema(d.disc)
 
 #### Evaluation

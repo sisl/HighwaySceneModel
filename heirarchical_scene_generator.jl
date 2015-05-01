@@ -109,7 +109,8 @@ function train_heirarchicalscenegenerator(scenes::Vector{RoadScene}, nbins::Dict
     # structure learning
     params = LearnParams_BayesianSearch()
     params.maxparents  = 5
-    params.niterations = 20
+    params.niterations = 200
+    params.maxsearchtime = 0
     net, worked = learn((dmat-1)', params)
     @assert(worked)
 
@@ -442,8 +443,8 @@ function cross_validate_scenegenerator(
                     :speed        => 5,
                     :d_cl         => 5,
                     :yaw          => 5,
-                    :d_front      => 5,
-                    :d_rear       => 5
+                    :d_front  => 5,
+                    :d_rear   => 5
                     ]
     )
     
@@ -479,14 +480,14 @@ function cyclic_coordinate_ascent_parallel(
     )
 
     param_options = (
-            [5,7,10,15,20,25,30], # :scenecount
-            [5,7,10,15,20,25,30], # :speed
-            [5,7,10,15,20,25,30], # :d_cl        
-            [5,7,10,15,20,25,30], # :yaw         
-            [5,7,10,15,20,25,30], # :d_front 
-            [5,7,10,15,20,25,30], # :d_rear  
-            [5,7,10,15,20,25,30], # :v_front 
-            [5,7,10,15,20,25,30], # :v_rear  
+            [3,5,7,10,15], # :scenecount
+            [3,5,7,10,15], # :speed
+            [3,5,7,10,15], # :d_cl        
+            [3,5,7,10,15], # :yaw         
+            [3,5,7,10,15], # :d_front 
+            [3,5,7,10,15], # :d_rear  
+            [3,5,7,10,15], # :v_front 
+            [3,5,7,10,15], # :v_rear  
         )
 
     n_params = length(param_options)

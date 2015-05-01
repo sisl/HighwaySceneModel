@@ -13,7 +13,7 @@ const N_SCENES_TO_GENERATE = 1000
 const N_SCENES_TO_OUTPUT   = 5
 
 const PERCENT_TRAIN = 0.9
-const CONFIDENCE    = 2.228 # 95% (for 10 samples)
+const CONFIDENCE = 2.228 # 95% (for 10 samples)
 
 result_dict = Dict{String, Trajdata_.ModelOptimizationResults}()
 
@@ -40,7 +40,7 @@ for (setname, f_pull) in (
         Trajdata_.HeirarchicalSceneGenerator,
         Trajdata_.JointBNChainSceneGenerator,
         Trajdata_.JointBNSimpleSceneGenerator,
-        Trajdata_.UnivariateSceneGenerator,
+        Trajdata_.UnivariateSceneGenerator, 
         )
 
         modelname = Trajdata_.model_name(T)
@@ -51,7 +51,7 @@ for (setname, f_pull) in (
                     CV_rounds = CV_rounds, CV_nfolds =CV_nfolds)
         toc()
         result_dict[setname] = res
-        output_file = @sprintf("%smodeloptres_univariate_gmm_%s.jld", OUTPUT_FOLDER_JLD, setname)
+        output_file = @sprintf("%smodeloptres_%s_%s.jld", OUTPUT_FOLDER_JLD, modelname, setname)
         JLD.save(output_file, "res", res)
         Trajdata_.write(res, setname)
 
@@ -68,6 +68,29 @@ for (setname, f_pull) in (
         metrics = Trajdata_.compute_metrics(sample_scenes)
         Trajdata_.write(sg, metrics, setname)
         Trajdata_.output_scenes(sg, sample_scenes[1:N_SCENES_TO_OUTPUT], setname)
+
+        output_file2 = @sprintf("%smodeloptstruct_%s_%s.txt", OUTPUT_FOLDER_JLD, modelname, setname)
+        open(output_file2, "w") do fout
+            if T == Trajdata_.UnivariateSceneGenerator
+                println("d_front: ", nlabels(sg.d_front.disc))
+                println("v: ",       nlabels(sg.v.disc))
+                println("d_cl: ",    nlabels(sg.d_cl.disc))
+                println("yaw:  ",    nlabels(sg.yaw.disc))
+            elseif T == Trajdata_.HeirarchicalSceneGenerator || T == Trajdata_.JointBNChainSceneGenerator || T == Trajdata_.JointBNSimpleSceneGenerator
+                for (sym, i) in sg.varindeces
+                    println(fout, sym, "{",  Discretizers.nlabels(sg.discmap[sym]), "}:")
+                    for j in Smile.get_children(sg.net, i )
+                        sym2 = :none
+                        for (s2, i2) in sg.varindeces
+                            if i2 == j
+                                sym2 = s2
+                            end
+                        end
+                        println(fout, "\t", sym2, "{",  Discretizers.nlabels(sg.discmap[sym2]), "}")
+                    end
+                end
+            end
+        end
 
         if setname == "101b"
             centers, counts = Trajdata_.get_histogram_line(:nvehicles, metrics[:nvehicles])
@@ -118,6 +141,8 @@ for (setname, f_pull) in (
     println("                  (vpm)          : ", mean(ld)/0.000189394, " +- ", sqrt(ld.v_hat)/0.000189394)
     println("mean lane speed   (ft/s):          ", mean(ls), " +- ", sqrt(ls.v_hat))
 
+    p = randperm(length(scenes))
+    Trajdata_.output_scenes(scenes[p[1:N_SCENES_TO_OUTPUT]], setname)
 
     if setname == "101b"
         centers, counts = Trajdata_.get_histogram_line(:nvehicles, metrics[:nvehicles])
