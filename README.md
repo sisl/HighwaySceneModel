@@ -3,5 +3,4 @@ Model details, parameters, and associated code for traffic propagation models as
 
 All code in this repository uses the Julia language. The versions for each package are available in REQUIRE.
 
-A code overview for this repository will be included shortly, after the author passes his qualification exams (after 5/13).
-- models can be trained by running train_model.jl
+Please read the [documentation](http://nbviewer.ipython.org/github/sisl/HighwaySceneModel/blob/master/HighwaySceneModel.ipynb).
